@@ -1,0 +1,6 @@
+---
+launch:
+    - node:
+        pkg: omniplanner_ros
+        exec: omniplanner_node
+        name: omniplanner_node
