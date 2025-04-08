@@ -1,0 +1,4 @@
+launch:
+    - set_remap:
+        from: ~/compiled_plan_out
+        to: /REMAPPED2

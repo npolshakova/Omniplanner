@@ -1,6 +1,7 @@
 # examples of planning combinations:
 from dataclasses import dataclass
 from typing import Any
+
 from multipledispatch import dispatch
 
 # 0. GotoPoints Domain, ListOfPoints goal, PointLocations

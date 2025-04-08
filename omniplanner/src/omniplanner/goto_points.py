@@ -1,11 +1,12 @@
 from dataclasses import dataclass
-from multipledispatch import dispatch
-import numpy as np
-from omniplanner.omniplanner import PlanningDomain
-from typing import List
+from typing import List, overload
 
+import numpy as np
 import parse
 import spark_dsg
+from multipledispatch import dispatch
+
+from omniplanner.omniplanner import PlanningDomain
 
 
 def str_to_ns_value(s):
@@ -43,7 +44,9 @@ class GotoPointsGoal:
     robot_id: str
 
 
-@dispatch(GotoPointsDomain, spark_dsg.DSG_TYPE, np.ndarray, list)
+# @dispatch(GotoPointsDomain, spark_dsg.DSG_TYPE, np.ndarray, list)
+@overload
+@dispatch(GotoPointsDomain, object, np.ndarray, list)
 def ground_problem(domain, dsg, start, goal) -> GroundedGotoPointsProblem:
     def get_loc(symbol):
         node = dsg.find_node(str_to_ns_value(symbol))
@@ -57,6 +60,7 @@ def ground_problem(domain, dsg, start, goal) -> GroundedGotoPointsProblem:
     )
 
 
+@overload
 @dispatch(GotoPointsDomain, np.ndarray, np.ndarray, list)
 def ground_problem(domain, map_context, start, goal) -> GroundedGotoPointsProblem:
     point_sequence = map_context[goal]

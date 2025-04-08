@@ -1,0 +1,36 @@
+---
+launch:
+
+    - arg:
+        name: var1
+        default: "false"
+
+    - arg:
+        name: var2
+        default: "true"
+
+    - arg:
+        name: var3
+        default: "spot"
+
+    - include:
+        file: $(find-pkg-share omniplanner_ros)/launch/include.launch.yaml
+
+    - group:
+        - set_remap:
+            from: ~/dsg_in
+            to: /REMAPPED
+        - node:
+            if: $(and $(or $(var var1) $(var var2)) $(eval "'$(var var3)' == 'spot'"))
+            pkg: omniplanner_ros
+            exec: omniplanner_node
+            name: omniplanner_node
+            namespace: a_namespace
+
+
+
+    - node:
+        if: $(and $(or $(var var1) $(var var2)) $(eval "'$(var var3)' == 'spot'"))
+        pkg: omniplanner_ros
+        exec: omniplanner_node
+        name: omniplanner_node2

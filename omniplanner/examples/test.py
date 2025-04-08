@@ -1,10 +1,11 @@
 import numpy as np
+from robot_executor_interface.action_descriptions import ActionSequence, Follow
+
 from omniplanner.goto_points import GotoPointsDomain
 from omniplanner.omniplanner import (
     PlanRequest,
     full_planning_pipeline,
 )
-from robot_executor_interface.action_descriptions import ActionSequence, Follow
 
 
 def compile_plan(plan, plan_id, robot_name, frame_id):
@@ -34,12 +35,23 @@ points = np.array(
     ]
 )
 
+robot_poses = {"spot", self.get_spot_pose}
+
 req = PlanRequest(
     domain=GotoPointsDomain(),
     goal=[1, 2, 3, 4],
     initial_state=np.array([0.0, 0.1]),
 )
 plan = full_planning_pipeline(req, points)
+
+#        goal = GotoPointsGoal(
+#            goal_points=msg.point_names_to_visit, robot_id=msg.robot_id
+#        )
+#        req = PlanRequest(
+#            domain=GotoPointsDomain(),
+#            goal=goal,
+#            robot_states=robot_poses,
+#        )
 
 
 print("Plan from planning domain:")
