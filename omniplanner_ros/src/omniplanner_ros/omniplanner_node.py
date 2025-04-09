@@ -124,10 +124,13 @@ class OmniPlannerRos(Node):
             timer_period_s, self.hb_callback, callback_group=heartbeat_timer_group
         )
 
-    def dsg_callback(self, dsg):
-        with self.dsg_lock:
-            print("Setting DSG!")
-            self.dsg_lock = dsg
+    def dsg_callback(self, header, dsg):
+        self.get_logger().warning("Setting DSG!")
+
+        with self.last_dsg_time_lock and self.dsg_lock:
+            self.dsg_last = dsg
+            self.last_dsg_time = time.time()
+
 
     def hb_callback(self):
         with (
@@ -149,7 +152,7 @@ class OmniPlannerRos(Node):
                 elapsed_planning_time = time.time() - self.plan_time_start
                 notes += f"Running {self.current_planner} ({elapsed_planning_time} s)"
 
-        status = NodeInfoMsg.WARNING
+        status = NodeInfoMsg.NOMINAL
         if not have_recent_dsg:
             status = NodeInfoMsg.WARNING
 
@@ -162,10 +165,6 @@ class OmniPlannerRos(Node):
 
     # def nlp_goal_callback(self, msg):
     #    pass
-
-    def update_dsg_callback(self, msg):
-        with self.last_dsg_time_lock:
-            self.last_dsg_time = time.time()
 
     def get_spot_pose(self):
         return get_robot_pose(
