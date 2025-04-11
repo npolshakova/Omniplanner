@@ -4,6 +4,7 @@ import uuid
 
 import numpy as np
 import rclpy
+import rclpy.duration
 import tf2_ros
 import tf_transformations
 from hydra_ros import DsgSubscriber
@@ -14,6 +15,8 @@ from robot_executor_interface.action_descriptions import ActionSequence, Follow
 from robot_executor_interface_ros.action_descriptions_ros import to_msg, to_viz_msg
 from robot_executor_msgs.msg import ActionSequenceMsg
 from ros_system_monitor_msgs.msg import NodeInfoMsg
+from tf2_ros.buffer import Buffer
+from tf2_ros.transform_listener import TransformListener
 from visualization_msgs.msg import MarkerArray
 
 from omniplanner.goto_points import GotoPointsDomain, GotoPointsGoal
@@ -44,7 +47,10 @@ def get_robot_pose(
     try:
         now = rclpy.time.Time()
         tf_buffer.can_transform(
-            target_frame, source_frame, now, timeout=rclpy.Duration(seconds=1.0)
+            target_frame,
+            source_frame,
+            now,
+            timeout=rclpy.duration.Duration(seconds=1.0),
         )
         transform = tf_buffer.lookup_transform(target_frame, source_frame, now)
 
@@ -55,7 +61,7 @@ def get_robot_pose(
         quat = [rotation.x, rotation.y, rotation.z, rotation.w]
         roll, pitch, yaw = tf_transformations.euler_from_quaternion(quat)
 
-        return np.ndarray([translation.x, translation.y, translation.z, yaw])
+        return np.array([translation.x, translation.y, translation.z, yaw])
 
     except tf2_ros.TransformException as e:
         print(f"Transform error: {e}")
@@ -79,9 +85,13 @@ class OmniPlannerRos(Node):
         super().__init__("omniplanner_ros")
         self.get_logger().info("Setting up omniplanner")
 
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
+
         self.last_dsg_time = 0
         self.current_planner = None
         self.plan_time_start = None
+        self.dsg_last = None
 
         self.last_dsg_time_lock = threading.Lock()
         self.current_planner_lock = threading.Lock()
@@ -131,7 +141,6 @@ class OmniPlannerRos(Node):
             self.dsg_last = dsg
             self.last_dsg_time = time.time()
 
-
     def hb_callback(self):
         with (
             self.last_dsg_time_lock
@@ -167,8 +176,9 @@ class OmniPlannerRos(Node):
     #    pass
 
     def get_spot_pose(self):
+        # TODO: parameters
         return get_robot_pose(
-            self.tf_buffer, target_frame="vision", source_frame="base_link"
+            self.tf_buffer, target_frame="map", source_frame="base_link"
         )
 
     def goto_points_callback(self, msg):
@@ -185,11 +195,15 @@ class OmniPlannerRos(Node):
         # the scene graph (or scene graph replacement), or 2) the initial robot
         # poses
 
+        if self.dsg_last is None:
+            self.get_logger().error("Got plan request, but no DSG!")
+            return
+
         with self.current_planner_lock and self.plan_time_start_lock:
             self.current_planner = "GotoPointsPlanner"
             self.plan_time_start = time.time()
 
-        robot_poses = {"spot", self.get_spot_pose}
+        robot_poses = {"spot": self.get_spot_pose()}
         goal = GotoPointsGoal(
             goal_points=msg.point_names_to_visit, robot_id=msg.robot_id
         )
@@ -200,16 +214,16 @@ class OmniPlannerRos(Node):
         )
 
         with self.dsg_lock:
-            plan = full_planning_pipeline(req, self.dsg)
-        spot_path_frame = "vision"  # TODO: parameter
+            plan = full_planning_pipeline(req, self.dsg_last)
+        spot_path_frame = "map"  # TODO: parameter
         compiled_plan = temp_compile_plan(
             plan, str(uuid.uuid4()), "spot", spot_path_frame
         )
 
         # 1. Publish compiled plan <-- probably also should happen from omniplanner, not plugin
-        self.compiled_plan_pub(to_msg(compiled_plan))
+        self.compiled_plan_pub.publish(to_msg(compiled_plan))
         # 2. Publish compiled plan viz <-- should happen from omniplanner, not inside plugin
-        self.compiled_plan_viz_pub(to_viz_msg(compiled_plan))
+        self.compiled_plan_viz_pub.publish(to_viz_msg(compiled_plan, "goto_pt_plan"))
 
         with self.current_planner_lock and self.plan_time_start_lock:
             self.current_planner = None

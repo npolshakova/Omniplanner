@@ -101,7 +101,7 @@ def make_plan(grounded_problem, map_context) -> Plan:
 
 def full_planning_pipeline(plan_request: PlanRequest, map_context: Any):
     grounded_problem = ground_problem(
-        plan_request.domain, map_context, plan_request.initial_state, plan_request.goal
+        plan_request.domain, map_context, plan_request.robot_states, plan_request.goal
     )
     plan = make_plan(grounded_problem, map_context)
     return plan

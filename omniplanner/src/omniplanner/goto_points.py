@@ -44,23 +44,23 @@ class GotoPointsGoal:
     robot_id: str
 
 
-# @dispatch(GotoPointsDomain, spark_dsg.DSG_TYPE, np.ndarray, list)
 @overload
-@dispatch(GotoPointsDomain, object, np.ndarray, list)
-def ground_problem(domain, dsg, start, goal) -> GroundedGotoPointsProblem:
+@dispatch(GotoPointsDomain, object, dict, GotoPointsGoal)
+def ground_problem(domain, dsg, robot_states, goal) -> GroundedGotoPointsProblem:
+    start = robot_states[goal.robot_id]
+
     def get_loc(symbol):
         node = dsg.find_node(str_to_ns_value(symbol))
         if node is None:
             raise Exception(f"Requested symbol {symbol} not in scene graph")
         return node.attributes.position[:2]
 
-    referenced_points = np.array([get_loc(symbol) for symbol in goal])
+    referenced_points = np.array([get_loc(symbol) for symbol in goal.goal_points])
     return ground_problem(
-        domain, referenced_points, start, [i for i in range(len(goal))]
+        domain, referenced_points, start, [i for i in range(len(goal.goal_points))]
     )
 
 
-@overload
 @dispatch(GotoPointsDomain, np.ndarray, np.ndarray, list)
 def ground_problem(domain, map_context, start, goal) -> GroundedGotoPointsProblem:
     point_sequence = map_context[goal]
